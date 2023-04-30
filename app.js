@@ -1,46 +1,55 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-const nunjucks = require('nunjucks');
+const express = require('express');
+const https = require('https');
+const app = express();
 
-var indexRouter = require('./routes/index');
-// var usersRouter = require('./routes/users');
+const server = app.listen(3001, () => {
+    console.log('Server Started!')
+})
 
-var app = express();
+app.get('/api/users/:date', async (req, res) => {
+    var {date} = req.params;
+    let res1 = '';
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'njk');
-nunjucks.configure('views', { 
-  express: app,
-  watch: true,
+    https.get(`https://www.gojls.com/branch/myservice/homework/note/1579774/${date}`, response => {
+        let result = '';
+      
+        response.on('data', chunk => {
+          result += chunk;
+        });
+      
+        response.on('end', () => {
+            if (String(result) == '{"data":"[]","header":{"isSuccessful":true,"resultCode":0,"resultMessage":"success"}}') {
+                res.send('업로드 되지 않았거나 잘못된 날짜입니다.');
+            }
+            else {
+                console.log(result)
+                let data1 = String(result)
+                data1 = data1 = data1.replaceAll('\\n', '(CL)');
+                const data = data1.replace(/\\/g, '');
+                console.log(data)
+
+                let result1 = data.slice(0, 8); // .slice를 이용하여 " 삭제
+                let result2 = result1+data.slice(9,20)// .slice를 이용하여 " 삭제
+                let result3 = result2+data.slice(21, data.length-80)
+                let result4 = result3+'}]}}]'+data.slice(data.length-73)
+                const parsedJson = JSON.parse(result4);
+                console.log(parsedJson)
+                const insertValues2 = parsedJson.data.map(notice => notice.notice.ops.map(op => op.insert)).flat();
+
+                for (let i = 0; i < insertValues2.length; i++) {
+                    insertValues2[i] = insertValues2[i].replace(/\(CL\)/g, '<br>')
+                }
+
+                for (let i = 0; i < insertValues2.length; i++) {
+                    if (insertValues2[i].includes(''))
+                    res1 = res1 + insertValues2[i];
+                }
+
+                console.log(res1)
+                res.send(res1);
+            }
+        });
+      }).on('error', error => {
+        console.error(error);
+      });
 });
-
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use('/', indexRouter);
-// app.use('/users', usersRouter);
-
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
-});
-
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
-});
-
-module.exports = app;
