@@ -1,6 +1,10 @@
 const express = require('express');
 const https = require('https');
+const cors = require('cors');
+
 const app = express();
+
+app.use(cors());
 
 const server = app.listen(3001, () => {
     console.log('Server Started!')
